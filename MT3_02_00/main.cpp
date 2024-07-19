@@ -10,6 +10,9 @@
 #include <numbers>
 const char kWindowTitle[] = "GC2B_08_シミズ_タクミ";
 
+static const int kWindowWidth = 1280;
+static const int kWindowHeight = 720;
+
 struct Matrix4x4
 {
 	float m[4][4];
@@ -19,6 +22,8 @@ struct Sphere {
 	Vector3 center;
 	float radius;
 };
+
+
 //ビューポート行列
 Matrix4x4 MakeViewportMatrix(float left, float top, float width, float height, float minDepth, float maxDepth)
 {
@@ -45,13 +50,6 @@ Matrix4x4 MakeViewportMatrix(float left, float top, float width, float height, f
 
 	return m;
 }
-//クロス積の関数
-Vector3 Cross(const Vector3& v1, const Vector3& v2)
-{
-	return { v1.y * v2.z * v1.z * v2.y,
-		v1.z * v2.z * v2.x - v1.x * v2.z,
-		v1.x * v2.y - v1.y * v2.x };
-}
 
 Vector3 Transform(const Vector3& vector, const Matrix4x4& matrix)
 {
@@ -67,134 +65,6 @@ Vector3 Transform(const Vector3& vector, const Matrix4x4& matrix)
 	r.y /= w;
 	r.z /= w;
 	return r;
-}
-//4x4拡大縮小行列
-Matrix4x4 MakeScaleMatrix(const Vector3& scale) {
-	Matrix4x4 m;
-
-	m.m[0][0] = scale.x;
-	m.m[0][1] = 0;
-	m.m[0][2] = 0;
-	m.m[0][3] = 0;
-
-	m.m[1][0] = 0;
-	m.m[1][1] = scale.y;
-	m.m[1][2] = 0;
-	m.m[1][3] = 0;
-
-	m.m[2][0] = 0;
-	m.m[2][1] = 0;
-	m.m[2][2] = scale.z;
-	m.m[2][3] = 0;
-
-	m.m[3][0] = 0;
-	m.m[3][1] = 0;
-	m.m[3][2] = 0;
-	m.m[3][3] = 1;
-
-	return m;
-}
-
-Matrix4x4 MakeRotateXMatrix(float radian)
-{
-	Matrix4x4 m = {};
-	m.m[0][0] = 1;
-	m.m[0][1] = 0;
-	m.m[0][2] = 0;
-	m.m[0][3] = 0;
-
-	m.m[1][0] = 0;
-	m.m[1][1] = std::cos(radian);
-	m.m[1][2] = std::sin(radian);
-	m.m[1][3] = 0;
-
-	m.m[2][0] = 0;
-	m.m[2][1] = std::sin(-radian);
-	m.m[2][2] = std::cos(radian);
-	m.m[2][3] = 0;
-
-	m.m[3][0] = 0;
-	m.m[3][1] = 0;
-	m.m[3][2] = 0;
-	m.m[3][3] = 1;
-
-	return m;
-}
-Matrix4x4 MakeRotateYMatrix(float radian)
-{
-	Matrix4x4 m = {};
-
-	m.m[0][0] = std::cos(radian);
-	m.m[0][1] = 0;
-	m.m[0][2] = std::sin(-radian);
-	m.m[0][3] = 0;
-
-	m.m[1][0] = 0;
-	m.m[1][1] = 1;
-	m.m[1][2] = 0;
-	m.m[1][3] = 0;
-
-	m.m[2][0] = std::sin(radian);
-	m.m[2][1] = 0;
-	m.m[2][2] = std::cos(radian);
-	m.m[2][3] = 0;
-
-	m.m[3][0] = 0;
-	m.m[3][1] = 0;
-	m.m[3][2] = 0;
-	m.m[3][3] = 1;
-
-	return m;
-}
-Matrix4x4 MakeRotateZMatrix(float radian)
-{
-	Matrix4x4 m = {};
-
-	m.m[0][0] = std::cos(radian);
-	m.m[0][1] = std::sin(radian);
-	m.m[0][2] = 0;
-	m.m[0][3] = 0;
-
-	m.m[1][0] = std::sin(-radian);
-	m.m[1][1] = std::cos(radian);
-	m.m[1][2] = 0;
-	m.m[1][3] = 0;
-
-	m.m[2][0] = 0;
-	m.m[2][1] = 0;
-	m.m[2][2] = 1;
-	m.m[2][3] = 0;
-
-	m.m[3][0] = 0;
-	m.m[3][1] = 0;
-	m.m[3][2] = 0;
-	m.m[3][3] = 1;
-	return m;
-}
-Matrix4x4 MakeTranslateMatrix(const Vector3& translate) {
-	Matrix4x4 m = {};
-
-	m.m[0][0] = 1;
-	m.m[0][1] = 0;
-	m.m[0][2] = 0;
-	m.m[0][3] = 0;
-
-	m.m[1][0] = 0;
-	m.m[1][1] = 1;
-	m.m[1][2] = 0;
-	m.m[1][3] = 0;
-
-	m.m[2][0] = 0;
-	m.m[2][1] = 0;
-	m.m[2][2] = 1;
-	m.m[2][3] = 0;
-
-	m.m[3][0] = translate.x;
-	m.m[3][1] = translate.y;
-	m.m[3][2] = translate.z;
-	m.m[3][3] = 1;
-
-	return m;
 }
 //マルチプライム
 Matrix4x4 Mu(Matrix4x4 matrix1, Matrix4x4 matrix2)
@@ -224,7 +94,7 @@ Matrix4x4 Mu(Matrix4x4 matrix1, Matrix4x4 matrix2)
 
 	return result;
 }
-//アフィン変換
+
 Matrix4x4 MakeAffineMatrix(const Vector3& scale, const Vector3& rotate, const Vector3& translate)
 {
 	Matrix4x4 s =
@@ -722,15 +592,6 @@ void DrawGrid(const Matrix4x4& viewProjectionMatrix, const Matrix4x4& viewportMa
 		Novice::DrawLine((int)tStart.x, (int)tStart.y, (int)tEnd.x, (int)tEnd.y, 0xAAAAAAFF);
 	}
 }
-//足し算の関数
-Vector3 Add(Vector3& a, Vector3& b)
-{
-	Vector3 c = {};
-	c.x = a.x + b.x;
-	c.y = a.y + b.y;
-	c.z = a.z + b.z;
-	return c;
-}
 void DrawSphere(const Sphere& sphere, const Matrix4x4& viewProjectionMatrix, const Matrix4x4& viewportMatrix, uint32_t color) {
 	float pi = std::numbers::pi_v<float>;
 	const uint32_t kSubdivision = 12;
@@ -784,37 +645,38 @@ void DrawSphere(const Sphere& sphere, const Matrix4x4& viewProjectionMatrix, con
 	}
 }
 
-float Length(const Vector3& v) {
-	return std::sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
-}
-
-bool IsCollision(const Sphere& s1, const Sphere& s2) {
-	Vector3 a = {};
-	a.x = s2.center.x - s1.center.x;
-	a.y = s2.center.y - s1.center.y;
-	a.z = s2.center.z - s1.center.z;
-
-	float d = Length(a);
-
-	if (d <=(s1.radius + s2.radius))
-	{
-		return d;
-	}
-	return false;
-}
-
-//printfの関数
-static const int kRowHeight = 20;
-static const int kColmnWidht = 100;
-static const int kWindowWidth = 1280;
-static const int kWindowHeight = 720;
-void VectorScreenPrintf(int x, int y, Vector3 vector)
+Vector3 Negate(const Vector3& v)
 {
-	Novice::ScreenPrintf(x, y, "%.02f", vector.x);
-	Novice::ScreenPrintf(x + kColmnWidht, y, "%.02f", vector.y);
-	Novice::ScreenPrintf(x + kColmnWidht * 2, y, "%.02f", vector.z);
-
+	Vector3 a{ -v.x,-v.y,-v.z };
+	return a;
 }
+Vector3 Add(const Vector3& v1, const Vector3& v2)
+{
+	Vector3 a{ v1.x + v2.x,v1.y + v2.y,v1.z + v2.z };
+	return a;
+}
+Vector3 Multiply(float scalar, const Vector3& v)
+{
+	Vector3 a{ scalar * v.x,scalar * v.y,scalar * v.z };
+	return a;
+}
+
+float Dot(const Vector3& v1, const Vector3& v2) {
+	float a = v1.x * v2.x + v1.y * v2.y + v1.z * v2.z;
+	return a;
+}
+float Length(const Vector3& v) { return std::sqrt(Dot(v, v)); }
+
+Vector3 Normalize(const Vector3& v)
+{
+	float length = Length(v);
+	assert(length != 0.0f);
+	Vector3 a{v.x/length,v.y / length,v.z / length};
+	return a;
+}
+
+
+
 // Windowsアプリでのエントリーポイント(main関数)
 int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	// ライブラリの初期化
@@ -830,11 +692,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	Vector3 translate{};
 
 	Sphere sphere{0.f,0.0f,0.0f };
-	Sphere twoSphere{0.f,1.0f,0.0f};
 	Vector3 a = {};
 	sphere.radius = 0.5f;
-	twoSphere.radius = 0.3f;
-	uint32_t sphereColors[2]{ WHITE, WHITE };
+	uint32_t sphereColor={ WHITE};
 	// ウィンドウの×ボタンが押されるまでループ
 	while (Novice::ProcessMessage() == 0) {
 		// フレームの開始
@@ -854,10 +714,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		ImGui::DragFloat3("CameraRotate", &cameraRotate.x, 0.01f);
 		ImGui::DragFloat3("Sphere[0].Center", &sphere.center.x, 0.01f);
 		ImGui::DragFloat("Sphere[0].Radius", &sphere.radius, 0.01f);
-		ImGui::DragFloat3("Sphere[1].Center", &twoSphere.center.x, 0.01f);
-		ImGui::DragFloat("Sphere[1].Radius", &twoSphere.radius, 0.01f);
 		ImGui::End();
-		//Matrix4x4 viewMatrix = CalcViewMatrix(camera);
 
 		Matrix4x4 cameraMatrix = MakeAffineMatrix({ 1.0f, 1.0f, 1.0f }, cameraRotate, cameraTranslate);
 
@@ -865,18 +722,10 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		Matrix4x4 projectionMatrix =
 			MakePerspectiveFovMatrix(0.45f, float(kWindowWidth) / float(kWindowHeight), 0.1f, 100.0f);
 		Matrix4x4 viewProjectionMatrix = Mu(viewMatrix, projectionMatrix);
-		// ViewportMatrixを作る
 		Matrix4x4 viewportMatrix =
 			MakeViewportMatrix(0, 0, float(kWindowWidth), float(kWindowHeight), 0.0f, 1.0f);
 		
-		if (IsCollision(sphere,twoSphere)) {
-			sphereColors[0] = RED;
-		}
-		else
-		{
-			sphereColors[0] =WHITE;
-		}
-
+	
 		///
 		/// ↑更新処理ここまで
 		///
@@ -885,8 +734,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		///
 		// 描画
 		DrawGrid(viewProjectionMatrix, viewportMatrix);
-		DrawSphere(sphere, viewProjectionMatrix, viewportMatrix, sphereColors[0]);
-		DrawSphere(twoSphere, viewProjectionMatrix, viewportMatrix, sphereColors[1]);
+		DrawSphere(sphere, viewProjectionMatrix, viewportMatrix, sphereColor);
 
 
 		///
