@@ -722,28 +722,53 @@ void DrawGrid(const Matrix4x4& viewProjectionMatrix, const Matrix4x4& viewportMa
 		Novice::DrawLine((int)tStart.x, (int)tStart.y, (int)tEnd.x, (int)tEnd.y, 0xAAAAAAFF);
 	}
 }
-
-//const float pi = 3.14f;
-const uint32_t kSubdivision = 10;
-//まだ作っている途中
+//足し算の関数
+Vector3 Add(Vector3& a, Vector3& b)
+{
+	Vector3 c = {};
+	c.x = a.x + b.x;
+	c.y = a.y + b.y;
+	c.z = a.z + b.z;
+	return c;
+}
 void DrawSphere(const Sphere& sphere, const Matrix4x4& viewProjectionMatrix, const Matrix4x4& viewportMatrix, uint32_t color) {
 	float pi = std::numbers::pi_v<float>;
+	const uint32_t kSubdivision = 12;
 
-	const float kLonEvery = 2 * pi / kSubdivision;
-	const float kLatEvery = pi / kSubdivision;
+	const float kLonEvery = pi * 2.f / float (kSubdivision);
 
-	for (uint32_t latIndex = 0; latIndex < kSubdivision; latIndex++) {
-		float lat = -pi / 2.0f + kLatEvery * latIndex;
-		float latNext = -pi / 2.0f + kLatEvery * (latIndex + 1);
+	const float kLatEveey = pi / float(kSubdivision);
 
-		for (uint32_t lonIndex = 0; lonIndex < kSubdivision; lonIndex++) {
+	for (uint32_t latIndex = 0; latIndex < kSubdivision; ++latIndex)
+	{
+		float lat = -pi / 2.0f + kLatEveey * latIndex;
+
+		for (uint32_t lonIndex = 0; lonIndex < kSubdivision; ++lonIndex)
+		{
 			float lon = lonIndex * kLonEvery;
-			float lonNext = (lonIndex + 1) * kLonEvery;
 
-			//座標変換
-			Vector3 a = { sphere.radius * cosf(lat) * cosf(lon), sphere.radius * sinf(lat), sphere.radius * cosf(lat) * sinf(lon) };
-			Vector3 b = { sphere.radius * cosf(latNext) * cosf(lon), sphere.radius * sinf(latNext), sphere.radius * cosf(latNext) * sinf(lon) };
-			Vector3 c = { sphere.radius * cosf(lat) * cosf(lonNext), sphere.radius * sinf(lat), sphere.radius * cosf(lat) * sinf(lonNext) };
+			
+			Vector3 a =
+			{
+				sphere.center.x + sphere.radius * std::cos(lat) * std::cos(lon),
+				sphere.center.y + sphere.radius * std::sin(lat),
+				sphere.center.z + sphere.radius * std::cos(lat) * std::sin(lon),
+
+			};
+			Vector3 b =
+			{
+				sphere.center.x + sphere.radius * std::cos(lat + kLatEveey) * std::cos(lon),
+				sphere.center.y + sphere.radius * std::sin(lat + kLatEveey),
+				sphere.center.z + sphere.radius * std::cos(lat + kLatEveey) * std::sin(lon),
+
+			};
+			Vector3 c =
+			{
+				sphere.center.x + sphere.radius * std::cos(lat) * std::cos(lon+kLonEvery),
+				sphere.center.y + sphere.radius * std::sin(lat),
+				sphere.center.z + sphere.radius * std::cos(lat) * std::sin(lon + kLonEvery),
+
+			};
 
 			Vector3 transforma = Transform(a, viewProjectionMatrix);
 			transforma = Transform(transforma, viewportMatrix);
@@ -754,6 +779,7 @@ void DrawSphere(const Sphere& sphere, const Matrix4x4& viewProjectionMatrix, con
 			//スクリーン座標系まで変換したものを描画
 			Novice::DrawLine((int)transforma.x, (int)transforma.y, (int)transformb.x, (int)transformb.y, color);
 			Novice::DrawLine((int)transforma.x, (int)transforma.y, (int)transformc.x, (int)transformc.y, color);
+
 		}
 	}
 }
@@ -803,8 +829,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	Vector3 rotate{};
 	Vector3 translate{};
 
-	Sphere sphere{ 10.f,10.0f,10.0f };
-	Sphere twoSphere{0.f,0.0f,0.0f};
+	Sphere sphere{0.f,0.0f,0.0f };
+	Sphere twoSphere{0.f,1.0f,0.0f};
 	Vector3 a = {};
 	sphere.radius = 0.5f;
 	twoSphere.radius = 0.3f;
@@ -824,6 +850,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		
 		//Update(camera);
 		ImGui::Begin("Window");
+		ImGui::DragFloat3("CameraTranslate", &cameraTranslate.x, 0.01f);
+		ImGui::DragFloat3("CameraRotate", &cameraRotate.x, 0.01f);
 		ImGui::DragFloat3("Sphere[0].Center", &sphere.center.x, 0.01f);
 		ImGui::DragFloat("Sphere[0].Radius", &sphere.radius, 0.01f);
 		ImGui::DragFloat3("Sphere[1].Center", &twoSphere.center.x, 0.01f);
@@ -843,6 +871,10 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		
 		if (IsCollision(sphere,twoSphere)) {
 			sphereColors[0] = RED;
+		}
+		else
+		{
+			sphereColors[0] =WHITE;
 		}
 
 		///
