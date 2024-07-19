@@ -19,6 +19,22 @@ struct Sphere {
 	Vector3 center;
 	float radius;
 };
+
+struct Plane
+{
+	Vector3 normal;
+	float distnce;
+};
+//足し算の関数
+Vector3 Add(Vector3& a, Vector3& b)
+{
+	Vector3 c = {};
+	c.x = a.x + b.x;
+	c.y = a.y + b.y;
+	c.z = a.z + b.z;
+	return c;
+}
+
 //ビューポート行列
 Matrix4x4 MakeViewportMatrix(float left, float top, float width, float height, float minDepth, float maxDepth)
 {
@@ -196,7 +212,6 @@ Matrix4x4 MakeTranslateMatrix(const Vector3& translate) {
 
 	return m;
 }
-//マルチプライム
 Matrix4x4 Mu(Matrix4x4 matrix1, Matrix4x4 matrix2)
 {
 	Matrix4x4 result{};
@@ -220,10 +235,9 @@ Matrix4x4 Mu(Matrix4x4 matrix1, Matrix4x4 matrix2)
 	result.m[3][1] = matrix1.m[3][0] * matrix2.m[0][1] + matrix1.m[3][1] * matrix2.m[1][1] + matrix1.m[3][2] * matrix2.m[2][1] + matrix1.m[3][3] * matrix2.m[3][1];
 	result.m[3][2] = matrix1.m[3][0] * matrix2.m[0][2] + matrix1.m[3][1] * matrix2.m[1][2] + matrix1.m[3][2] * matrix2.m[2][2] + matrix1.m[3][3] * matrix2.m[3][2];
 	result.m[3][3] = matrix1.m[3][0] * matrix2.m[0][3] + matrix1.m[3][1] * matrix2.m[1][3] + matrix1.m[3][2] * matrix2.m[2][3] + matrix1.m[3][3] * matrix2.m[3][3];
-	//	result.m[3][3] = 5;
-
 	return result;
 }
+
 //アフィン変換
 Matrix4x4 MakeAffineMatrix(const Vector3& scale, const Vector3& rotate, const Vector3& translate)
 {
@@ -722,15 +736,6 @@ void DrawGrid(const Matrix4x4& viewProjectionMatrix, const Matrix4x4& viewportMa
 		Novice::DrawLine((int)tStart.x, (int)tStart.y, (int)tEnd.x, (int)tEnd.y, 0xAAAAAAFF);
 	}
 }
-//足し算の関数
-Vector3 Add(Vector3& a, Vector3& b)
-{
-	Vector3 c = {};
-	c.x = a.x + b.x;
-	c.y = a.y + b.y;
-	c.z = a.z + b.z;
-	return c;
-}
 void DrawSphere(const Sphere& sphere, const Matrix4x4& viewProjectionMatrix, const Matrix4x4& viewportMatrix, uint32_t color) {
 	float pi = std::numbers::pi_v<float>;
 	const uint32_t kSubdivision = 12;
@@ -784,23 +789,54 @@ void DrawSphere(const Sphere& sphere, const Matrix4x4& viewProjectionMatrix, con
 	}
 }
 
-float Length(const Vector3& v) {
-	return std::sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
+float Dot(const Vector3& v1, const Vector3& v2)
+{
+	return v1.x * v2.x + v1.y * v2.y + v1.z * v2.z;
+}
+float Length(const Vector3& v)
+{
+	return std::sqrt(Dot(v, v));
+}
+Vector3 Normalize(const Vector3& v)
+{
+	float length = Length(v);
+	assert(length != 0.0f);
+	return Vector3(v.x / length, v.y / length, v.z / length);
+}
+Vector3 Negate(const Vector3& v) 
+{
+	return Vector3(-v.x, -v.y, -v.z);
 }
 
-bool IsCollision(const Sphere& s1, const Sphere& s2) {
-	Vector3 a = {};
-	a.x = s2.center.x - s1.center.x;
-	a.y = s2.center.y - s1.center.y;
-	a.z = s2.center.z - s1.center.z;
+Vector3 M(float a, const Vector3& v)
+{
+	return Vector3(a * v.x, a * v.y, a * v.z);
+}
+void DrawPlane(const Plane& plane, const Matrix4x4& viewProjectionMatrix, const Matrix4x4& viewportMatrix, uint32_t color)
+{
+	Vector3 perpediculars[4];
+	perpediculars[0] = Normalize(plane.normal);
+	perpediculars[1] = Negate(perpediculars[0]);
+	perpediculars[2] = Cross(plane.normal,perpediculars[0]);
+	perpediculars[3] = Negate(perpediculars[2]);
 
-	float d = Length(a);
+	Vector3 center = M(plane.distnce, plane.normal);
+	Vector3 points[4];
+	for (uint32_t index = 0; index < 4; ++index) {
+		Vector3 extend = M(2.0f, perpediculars[index]);
+		Vector3 point = Add(center, extend);
+		points[index] = Transform(Transform(point, viewProjectionMatrix), viewportMatrix);
 
-	if (d <=(s1.radius + s2.radius))
-	{
-		return d;
 	}
-	return false;
+	Novice::DrawLine(int(points[0].x), int(points[0].y), int(points[2].x), int(points[2].y),color);
+	Novice::DrawLine(int(points[1].x), int(points[1].y), int(points[2].x), int(points[2].y),color);
+	Novice::DrawLine(int(points[0].x), int(points[0].y), int(points[3].x), int(points[3].y),color);
+	Novice::DrawLine(int(points[1].x), int(points[1].y), int(points[3].x), int(points[3].y),color);
+
+}
+bool IsCollision(const Sphere& s1, const Plane& plane) {
+	float distane = std::abs(Dot(s1.center, plane.normal));
+	return distane <= s1.radius;
 }
 
 //printfの関数
@@ -830,11 +866,10 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	Vector3 translate{};
 
 	Sphere sphere{0.f,0.0f,0.0f };
-	Sphere twoSphere{0.f,1.0f,0.0f};
-	Vector3 a = {};
+	Plane plane{0.65f,5.0f,1.f};
+	
 	sphere.radius = 0.5f;
-	twoSphere.radius = 0.3f;
-	uint32_t sphereColors[2]{ WHITE, WHITE };
+	plane.distnce = 0.5f;
 	// ウィンドウの×ボタンが押されるまでループ
 	while (Novice::ProcessMessage() == 0) {
 		// フレームの開始
@@ -853,11 +888,12 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		ImGui::DragFloat3("CameraTranslate", &cameraTranslate.x, 0.01f);
 		ImGui::DragFloat3("CameraRotate", &cameraRotate.x, 0.01f);
 		ImGui::DragFloat3("Sphere[0].Center", &sphere.center.x, 0.01f);
-		ImGui::DragFloat("Sphere[0].Radius", &sphere.radius, 0.01f);
-		ImGui::DragFloat3("Sphere[1].Center", &twoSphere.center.x, 0.01f);
-		ImGui::DragFloat("Sphere[1].Radius", &twoSphere.radius, 0.01f);
+		ImGui::DragFloat3("plane.Radius", &plane.normal.x, 0.01f);
+		ImGui::DragFloat("plane.distnce", &plane.distnce, 0.01f);
+
 		ImGui::End();
-		//Matrix4x4 viewMatrix = CalcViewMatrix(camera);
+		
+		plane.normal = Normalize(plane.normal);
 
 		Matrix4x4 cameraMatrix = MakeAffineMatrix({ 1.0f, 1.0f, 1.0f }, cameraRotate, cameraTranslate);
 
@@ -865,17 +901,14 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		Matrix4x4 projectionMatrix =
 			MakePerspectiveFovMatrix(0.45f, float(kWindowWidth) / float(kWindowHeight), 0.1f, 100.0f);
 		Matrix4x4 viewProjectionMatrix = Mu(viewMatrix, projectionMatrix);
-		// ViewportMatrixを作る
 		Matrix4x4 viewportMatrix =
 			MakeViewportMatrix(0, 0, float(kWindowWidth), float(kWindowHeight), 0.0f, 1.0f);
 		
-		if (IsCollision(sphere,twoSphere)) {
-			sphereColors[0] = RED;
+		uint32_t sphereColor = WHITE;
+		if (IsCollision(sphere, plane)) {
+			sphereColor = RED;
 		}
-		else
-		{
-			sphereColors[0] =WHITE;
-		}
+		
 
 		///
 		/// ↑更新処理ここまで
@@ -885,8 +918,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		///
 		// 描画
 		DrawGrid(viewProjectionMatrix, viewportMatrix);
-		DrawSphere(sphere, viewProjectionMatrix, viewportMatrix, sphereColors[0]);
-		DrawSphere(twoSphere, viewProjectionMatrix, viewportMatrix, sphereColors[1]);
+		DrawSphere(sphere, viewProjectionMatrix, viewportMatrix, sphereColor);
+		DrawPlane(plane, viewProjectionMatrix, viewportMatrix, WHITE);
 
 
 		///
