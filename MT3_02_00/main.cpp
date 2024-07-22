@@ -774,7 +774,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		ImGui::DragFloat3("plane.distance", &plane.distance, 0.01f);
 		ImGui::End();
 
-		plane.normal = Normalize(plane.normal);
+		//plane.normal = Normalize(plane.normal);
 		Matrix4x4 cameraMatrix = MakeAffineMatrix({ 1.0f, 1.0f, 1.0f }, cameraRotate, cameraTranslate);
 		Matrix4x4 viewMatrix = Inverse(cameraMatrix);
 
