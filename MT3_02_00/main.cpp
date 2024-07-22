@@ -743,7 +743,7 @@ void DrawGrid(const Matrix4x4& viewProjectionMatrix, const Matrix4x4& viewportMa
 	}
 }
 //足し算の関数
-Vector3 Add(Vector3& a, Vector3& b)
+Vector3 Add(const Vector3& a, const Vector3& b)
 {
 	Vector3 c = {};
 	c.x = a.x + b.x;
@@ -940,7 +940,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	Vector3 cameraRotate{ 0.26f, 0.0f, 0.0f };
 	Vector3 rotate{};
 	Vector3 translate{};
-
+	Camera camera{};
 	Sphere sphere{0.f,0.0f,0.0f };
 	Sphere twoSphere{0.f,1.0f,0.0f};
 	Vector3 a = {};
@@ -960,7 +960,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		/// ↓更新処理ここから
 		///
 		
-		//Update(camera);
+		Update(camera);
 		ImGui::Begin("Window");
 		ImGui::DragFloat3("CameraTranslate", &cameraTranslate.x, 0.01f);
 		ImGui::DragFloat3("CameraRotate", &cameraRotate.x, 0.01f);
@@ -973,7 +973,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 		Matrix4x4 cameraMatrix = MakeAffineMatrix({ 1.0f, 1.0f, 1.0f }, cameraRotate, cameraTranslate);
 
-		Matrix4x4 viewMatrix = Inverse(cameraMatrix);
+		Matrix4x4 viewMatrix = Inverse(camera);
 		Matrix4x4 projectionMatrix =
 			MakePerspectiveFovMatrix(0.45f, float(kWindowWidth) / float(kWindowHeight), 0.1f, 100.0f);
 		Matrix4x4 viewProjectionMatrix = Mu(viewMatrix, projectionMatrix);
