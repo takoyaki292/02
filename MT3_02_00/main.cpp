@@ -660,23 +660,34 @@ Vector3 Add(const Vector3& v1, const Vector3& v2)
 	Vector3 a{ v1.x + v2.x,v1.y + v2.y,v1.z + v2.z };
 	return a;
 }
+//スカラーの関数
 Vector3 Multiply(float scalar, const Vector3& v)
 {
-	Vector3 a{ scalar * v.x,scalar * v.y,scalar * v.z };
-	return a;
+	Vector3 c = {};
+	c.x = scalar * v.x;
+	c.y = scalar * v.y;
+	c.z = scalar * v.z;
+	return c;
 }
 
-float Dot(const Vector3& v1, const Vector3& v2) {
+//内積の関数
+float Dot(const Vector3& v1, const Vector3& v2)
+{
 	float a = v1.x * v2.x + v1.y * v2.y + v1.z * v2.z;
 	return a;
 }
-float Length(const Vector3& v) { return std::sqrt(Dot(v, v)); }
+float Length(const Vector3& v)
+{
+	return (float)sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
+}
 
 Vector3 Normalize(const Vector3& v)
 {
-	float length = Length(v);
-	assert(length != 0.0f);
-	Vector3 a{v.x/length,v.y / length,v.z / length};
+	float m = Length(v);
+	Vector3 a;
+	a.x = v.x / m;
+	a.y = v.y / m;
+	a.z = v.z / m;
 	return a;
 }
 
@@ -697,7 +708,7 @@ void DrawPlane(const Plane& plane, const Matrix4x4& viewProjectionMatrix, const 
 	perpediculars[3] = Negate(perpediculars[2]);
 
 	Vector3 center = Multiply(plane.distance, plane.normal);
-	Vector3 points[4];
+	Vector3 points[4] = {};
 	for (uint32_t index = 0; index < 4; ++index) {
 		Vector3 extend = Multiply(2.0f, perpediculars[index]);
 		Vector3 point = Add(center, extend);
@@ -711,7 +722,9 @@ void DrawPlane(const Plane& plane, const Matrix4x4& viewProjectionMatrix, const 
 
 }
 bool IsCollision(const Sphere& s1, const Plane& plane) {
-	float distane = std::abs(Dot(s1.center, plane.normal));
+	float a = Dot(s1.center, plane.normal);
+	float distane = std::abs(a-plane.distance);
+	
 	return distane <= s1.radius;
 }
 
@@ -724,16 +737,18 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	char keys[256] = { 0 };
 	char preKeys[256] = { 0 };
 
-	Vector3 cameraTranslate{ 0.0f, 1.9f, -6.49f };
-	Vector3 cameraRotate{ 0.26f, 0.0f, 0.0f };
+	//Vector3 cameraTranslate{ 0.0f, 1.9f, -6.49f };
+	Vector3 cameraTranslate{ 2.5f, 3.f, -10.49f };
+	Vector3 cameraRotate{ 0.26f, -0.26f, 0.0f };
 	Vector3 rotate{};
 	Vector3 translate{};
 
 	Sphere sphere{0.f,0.0f,0.0f };
-	Plane plane;// { 0.0f, 0.0f, 3.0f };
+	Plane plane{ 1.0f,3.0f,0.5f };
 	Vector3 a = {};
-	sphere.radius = 0.5f;
+	sphere.radius = 0.4f;
 	plane.distance=0.0f;
+	uint32_t sphereColor = WHITE;
 	// ウィンドウの×ボタンが押されるまでループ
 	while (Novice::ProcessMessage() == 0) {
 		// フレームの開始
@@ -749,17 +764,16 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		
 		//Update(camera);
 		ImGui::Begin("Window");
-		//ImGui::DragFloat3("CameraTranslate", &cameraTranslate.x, 0.01f);
-		//ImGui::DragFloat3("CameraRotate", &cameraRotate.x, 0.01f);
+		ImGui::DragFloat3("CameraTranslate", &cameraTranslate.x, 0.01f);
+		ImGui::DragFloat3("CameraRotate", &cameraRotate.x, 0.01f);
 		ImGui::DragFloat3("Sphere[0].Center", &sphere.center.x, 0.01f);
 		ImGui::DragFloat("Sphere[0].Radius", &sphere.radius, 0.01f);
 		ImGui::DragFloat3("plane.normal", &plane.normal.x, 0.01f);
-		ImGui::DragFloat("plane.distance", &plane.distance, 0.01f);
+		ImGui::DragFloat3("plane.distance", &plane.distance, 0.01f);
 		ImGui::End();
 		
 		plane.normal = Normalize(plane.normal);
 		Matrix4x4 cameraMatrix = MakeAffineMatrix({ 1.0f, 1.0f, 1.0f }, cameraRotate, cameraTranslate);
-
 		Matrix4x4 viewMatrix = Inverse(cameraMatrix);
 
 		Matrix4x4 projectionMatrix =
@@ -768,10 +782,13 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		Matrix4x4 viewportMatrix =
 			MakeViewportMatrix(0, 0, float(kWindowWidth), float(kWindowHeight), 0.0f, 1.0f);
 		
-		uint32_t sphereColor = WHITE;
-		if (!IsCollision(sphere, plane))
+	
+		if (IsCollision(sphere, plane))
 		{
 			sphereColor = RED;
+		}
+		else {
+			sphereColor = WHITE;
 		}
 		///
 		/// ↑更新処理ここまで
@@ -779,7 +796,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		///
 		/// ↓描画処理ここから
 		///
-		// 描画
 		DrawGrid(viewProjectionMatrix, viewportMatrix);
 		DrawSphere(sphere, viewProjectionMatrix, viewportMatrix, sphereColor);
 		DrawPlane(plane, viewProjectionMatrix, viewportMatrix,WHITE);
