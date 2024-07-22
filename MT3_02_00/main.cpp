@@ -1,5 +1,6 @@
 #include <Novice.h>
 #include "Vector3.h"
+#include "Vector2.h"
 #include <cstdint>
 #include <cassert>
 #include <cmath>
@@ -18,7 +19,26 @@ struct Matrix4x4
 struct Sphere {
 	Vector3 center;
 	float radius;
+	float theta;
+	float phi;
 };
+
+struct Capture {
+	int bottom;
+	Sphere spheical;
+	float mouseX, mouseY;
+	Vector2 mouse;
+	Vector3 center;
+	float theta;
+	
+};
+struct Camera {
+	Sphere sphereical;
+	Capture capture;
+	Vector3 center;
+	static const int KinvalidButtom;
+};
+
 //ビューポート行列
 Matrix4x4 MakeViewportMatrix(float left, float top, float width, float height, float minDepth, float maxDepth)
 {
@@ -803,6 +823,98 @@ bool IsCollision(const Sphere& s1, const Sphere& s2) {
 	return false;
 }
 
+//引き算の関数
+Vector2 Subtract(Vector2& a, Vector2& b)
+{
+	Vector2 c = {};
+	c.x = a.x - b.x;
+	c.y = a.y - b.y;
+	//c.z = a.z - b.z;
+	return c;
+}
+//スカラーの関数
+Vector3 Multiply(const float scalar, const Vector3& v)
+{
+	Vector3 c = {};
+	c.x = scalar * v.x;
+	c.y = scalar * v.y;
+	c.z = scalar * v.z;
+	return c;
+}
+void Update(Camera& camera)
+{
+	int32_t wheel = Novice::GetWheel();
+
+	camera.sphereical.radius -= (wheel / 512.0f);
+	camera.sphereical.radius = (std::max)(camera.sphereical.radius, 0.1f);
+
+	if (!Novice::CheckHitKey(DIK_LALT)){
+		camera.capture.bottom = Camera::KinvalidButtom;
+	}
+	int mouseX, mouseY;
+	if (!Novice::GetMousePosition(&mouseX, &mouseY)) {
+		assert(false);
+		return;
+	}
+
+	if (camera.capture.bottom == Camera::KinvalidButtom)
+	{
+		if (Novice::IsPressMouse(0)){
+			camera.capture.bottom = 0;
+		}
+		else if (Novice::IsPressMouse(1)){
+			camera.capture.bottom = 1;
+		}
+		else if (Novice::IsPressMouse(2)){
+			camera.capture.bottom = 2;
+		}
+
+		if (camera.capture.bottom != Camera::KinvalidButtom){
+			camera.capture.mouseX = float(mouseX);
+			camera.capture.mouseY = float(mouseY);
+			camera.capture.spheical = camera.sphereical;
+			camera.capture.center = camera.center;
+		}
+	}
+	else{
+		if (Novice::IsPressMouse(camera.capture.bottom)){
+			Vector2 mouse{ float(mouseX),float(mouseY) };
+			Vector2 diff = Subtract(camera.capture.mouse, mouse);
+
+			if (camera.capture.bottom == 0){
+				camera.sphereical.theta = camera.capture.spheical.theta + (-diff.y / 360.0f);
+				camera.sphereical.phi = camera.capture.spheical.phi + (-diff.x / 320.0f);
+			}
+			else if (camera.capture.bottom == 1){
+				camera.sphereical.radius =
+					camera.capture.spheical.radius + ((diff.x - diff.y) / 100.0f);
+				camera.sphereical.radius = (std::max)(camera.sphereical.radius, 0.1f);
+
+			}
+			else if (camera.capture.bottom == 2){
+				Matrix4x4 rotateMatrix = Mu(MakeRotateXMatrix(camera.capture.spheical.theta),
+					MakeRotateYMatrix(-camera.capture.spheical.phi));
+
+				Vector3 axisX{ 1.0f,0.0f,0.0f };
+				Vector3 axisY{ 0.0f,1.0f,0.0f };
+				Vector3 moveX = Transform(axisX, rotateMatrix);
+				Vector3 moveY = Transform(axisY, rotateMatrix);
+
+				float a =(diff.x / 320.0f);
+				float b =(- diff.y / 360.0f);
+
+				//Vector3 move = {
+				//	Add(Multiply(a,moveX),Multiply(b,moveY)) };
+				Vector3 move = Add(Multiply(a, moveX), Multiply(b, moveY));
+				camera.center = Add(camera.capture.center, move);
+			}
+		}
+		else
+		{
+			camera.capture.bottom = Camera::KinvalidButtom;
+		}
+	}
+}
 //printfの関数
 static const int kRowHeight = 20;
 static const int kColmnWidht = 100;
