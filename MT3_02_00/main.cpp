@@ -29,6 +29,10 @@ struct Plane {
 
 };
 
+struct Segment {
+	Vector3 origin;
+	Vector3 diff;
+};
 //ビューポート行列
 Matrix4x4 MakeViewportMatrix(float left, float top, float width, float height, float minDepth, float maxDepth)
 {
@@ -721,11 +725,21 @@ void DrawPlane(const Plane& plane, const Matrix4x4& viewProjectionMatrix, const 
 	Novice::DrawLine(int(points[1].x), int(points[1].y), int(points[3].x), int(points[3].y),color);
 
 }
-bool IsCollision(const Sphere& s1, const Plane& plane) {
-	float a = Dot(s1.center, plane.normal);
-	float distane = std::abs(a-plane.distance);
-	
-	return distane <= s1.radius;
+void DrawSegment(const Segment& segment, const Matrix4x4 viewProjectionMatrix, const Matrix4x4& viewportMatrix,uint32_t color)
+{
+	Vector3 strat = Transform(Transform(segment.origin, viewProjectionMatrix), viewportMatrix);
+	Vector3 end = Transform(Transform(Add(segment.origin, segment.diff), viewProjectionMatrix), viewportMatrix);
+	Novice::DrawLine(int(strat.x), int(strat.y), int(end.x), int(end.y), color);
+}
+
+bool IsCollision(const Segment& segment, const Plane& plane) {
+	float a = Dot(plane.normal,segment.diff);
+	if (a != 0.0f)
+	{
+		float t = (plane.distance - Dot(segment.origin, plane.normal));
+		return (t >= 0.0f && t <= 1.0f);
+	}
+	return false;
 }
 
 // Windowsアプリでのエントリーポイント(main関数)
@@ -745,10 +759,12 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 	Sphere sphere{0.f,0.0f,0.0f };
 	Plane plane{ 1.0f,3.0f,0.5f };
+	Segment segment{ 0.f,0.f,0.f };
 	Vector3 a = {};
 	sphere.radius = 0.4f;
 	plane.distance=0.0f;
-	uint32_t sphereColor = WHITE;
+	segment.diff = { 1.f,1.f,1.f };
+	uint32_t segmentColor = WHITE;
 	// ウィンドウの×ボタンが押されるまでループ
 	while (Novice::ProcessMessage() == 0) {
 		// フレームの開始
@@ -768,8 +784,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		ImGui::Begin("Window");
 		ImGui::DragFloat3("CameraTranslate", &cameraTranslate.x, 0.01f);
 		ImGui::DragFloat3("CameraRotate", &cameraRotate.x, 0.01f);
-		ImGui::DragFloat3("Sphere[0].Center", &sphere.center.x, 0.01f);
-		ImGui::DragFloat("Sphere[0].Radius", &sphere.radius, 0.01f);
+		ImGui::DragFloat3("&segment.diff.x", &segment.diff.x, 0.01f);
+		ImGui::DragFloat3("segment.origin.x", &segment.origin.x, 0.01f);
 		ImGui::DragFloat3("plane.normal", &plane.normal.x, 0.01f);
 		ImGui::DragFloat3("plane.distance", &plane.distance, 0.01f);
 		ImGui::End();
@@ -784,15 +800,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		Matrix4x4 viewportMatrix =
 			MakeViewportMatrix(0, 0, float(kWindowWidth), float(kWindowHeight), 0.0f, 1.0f);
 		
-
-
-	
-		if (IsCollision(sphere, plane))
-		{
-			sphereColor = RED;
+		if (IsCollision(segment, plane)){
+			segmentColor = RED;
 		}
 		else {
-			sphereColor = WHITE;
+			segmentColor = WHITE;
 		}
 		///
 		/// ↑更新処理ここまで
@@ -801,8 +813,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		/// ↓描画処理ここから
 		///
 		DrawGrid(viewProjectionMatrix, viewportMatrix);
-		DrawSphere(sphere, viewProjectionMatrix, viewportMatrix, sphereColor);
 		DrawPlane(plane, viewProjectionMatrix, viewportMatrix,WHITE);
+		DrawSegment(segment, viewProjectionMatrix, viewportMatrix, segmentColor);
 
 		///
 		/// ↑描画処理ここまで
