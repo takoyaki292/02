@@ -37,6 +37,11 @@ struct Segment {
 struct  Triangle{
 	Vector3 vertices[3];
 };
+struct AABB
+{
+	Vector3 min;
+	Vector3 max;
+};
 //ビューポート行列
 Matrix4x4 MakeViewportMatrix(float left, float top, float width, float height, float minDepth, float maxDepth)
 {
@@ -752,35 +757,55 @@ void DrawTriangle(const Triangle& triangle, const Matrix4x4 viewProjectionMatrix
 		int(screenVertices[1].x), int(screenVertices[1].y),
 		int(screenVertices[2].x), int(screenVertices[2].y), color, kFillModeWireFrame);
 }
-bool IsCollision(const Triangle& triangle, const Segment& line) {
-	Vector3 v01 = Subtract(triangle.vertices[1], triangle.vertices[0]);
-	Vector3 v12 = Subtract(triangle.vertices[2], triangle.vertices[1]);
-	Vector3 normal = Normalize(Cross(v01, v12));
-	Plane plane{ .normal = normal,.distance = Dot(triangle.vertices[0],normal) };
-	float dot = Dot(plane.normal, line.diff);
-	if (dot == 0.0f)
+
+void DrawAABB(const AABB& aabb, const Matrix4x4& viewProjectionMatirx, const Matrix4x4& viewportMatrix, uint32_t color)
+{
+	Vector3 vertices[8] = {
+		{aabb.min.x,aabb.min.y,aabb.min.z},
+		{aabb.min.x,aabb.max.y,aabb.min.z},
+		{aabb.min.x,aabb.max.y,aabb.max.z},
+		{aabb.min.x,aabb.min.y,aabb.max.z},
+		{aabb.max.x,aabb.min.y,aabb.min.z},
+		{aabb.max.x,aabb.max.y,aabb.min.z},
+		{aabb.max.x,aabb.max.y,aabb.max.z},
+		{aabb.max.x,aabb.min.y,aabb.max.z},
+	};
+
+	Vector3 screenVertices[8];
+	for (uint32_t index = 0; index < 8; ++index)
 	{
-		return false;
+		screenVertices[index] =
+			Transform(Transform(vertices[index], viewProjectionMatirx), viewportMatrix);
 	}
-	float t = (plane.distance - Dot(line.origin, plane.normal)) / dot;
-	Vector3 intersect = Add(line.origin, Multiply(t, line.diff));
-	Vector3 v1p = Subtract(intersect, triangle.vertices[1]);
-	if (Dot(Cross(v01, v1p), normal) < 0.0f)
+
+	std::pair<uint32_t, uint32_t>indices[12] = {
+		{0,1},
+		{1,2},
+		{2,3},
+		{3,0},
+		{4,5},
+		{5,6},
+		{6,7},
+		{7,4},
+		{0,4},
+		{1,5},
+		{2,6},
+		{3,7},
+	};
+
+	for (auto& index : indices)
 	{
-		return false;
+		Novice::DrawLine(
+			int(screenVertices[index.first].x), int(screenVertices[index.first].y),
+			int(screenVertices[index.second].x), int(screenVertices[index.second].y), color
+		);
 	}
-	Vector3 v2p = Subtract(intersect, triangle.vertices[2]);
-	if (Dot(Cross(v12, v2p), normal) < 0.0f)
-	{
-		return false;
-	}
-	Vector3 v0p = Subtract(intersect, triangle.vertices[0]);
-	Vector3 v20 = Subtract(triangle.vertices[0], triangle.vertices[2]);
-	if (Dot(Cross(v20, v0p), normal) < 0.0f)
-	{
-		return false;
-	}
-	return true;
+}
+bool IsCollision(const AABB& aabb1,const AABB& aabb2) {
+	return  (aabb1.min.x <= aabb2.max.x && aabb1.max.x >= aabb2.min.x) &&
+		(aabb1.min.y <= aabb2.max.y && aabb1.max.y >= aabb2.min.y) &&
+		(aabb1.min.z <= aabb2.max.z && aabb1.max.z >= aabb2.min.z);
+
 }
 
 // Windowsアプリでのエントリーポイント(main関数)
@@ -798,20 +823,14 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	Vector3 rotate{};
 	Vector3 translate{};
 
-	Plane plane{ 1.0f,3.0f,0.5f };
-	Segment segment{ 0.f,0.f,0.f };
-	Triangle triangle= {};
-	Vector3 a = {};
-	
-	plane.distance=0.0f;
-	segment.diff = { 1.f,1.f,1.f };
-	uint32_t segmentColor = WHITE;
+	AABB aabb1 = {};
+	AABB aabb2 = {};
+	aabb1.max = { 1.0f,1.0f,1.0f };
+	//aabb1.min = { -1.0f,-1.0f,-1.0f };
+	aabb2.max = {};
+	aabb2.min = { 1.0f,1.0f,1.0f };
+
 	uint32_t color = WHITE;
-
-	triangle.vertices[0] = { -1.f,0.0f,0.0f };
-	triangle.vertices[1] = { 0.f,2.0f,0.0f };
-	triangle.vertices[2] = { 1.f,0.0f,0.0f };
-
 	// ウィンドウの×ボタンが押されるまでループ
 	while (Novice::ProcessMessage() == 0) {
 		// フレームの開始
@@ -830,14 +849,25 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		
 		ImGui::Begin("Window");
 		
-		ImGui::DragFloat3("triangle.vertices[0]", &triangle.vertices[0].x, 0.01f);
-		ImGui::DragFloat3("triangle.vertices[1]", &triangle.vertices[1].x, 0.01f);
-		ImGui::DragFloat3("triangle.vertices[2]", &triangle.vertices[2].x, 0.01f);
-		ImGui::DragFloat3("segment.diff.x", &segment.diff.x, 0.01f);
-		ImGui::DragFloat3("segment.origin.x", &segment.origin.x, 0.01f);
+		ImGui::DragFloat3("aabb1.min", &aabb1.min.x, 0.01f);
+		ImGui::DragFloat3("aabb1.max", &aabb1.max.x, 0.01f);
+		ImGui::DragFloat3("aabb2.min", &aabb2.min.x, 0.01f);
+		ImGui::DragFloat3("aabb2.max", &aabb2.max.x, 0.01f);
 		ImGui::End();
 
-		//plane.normal = Normalize(plane.normal);
+		aabb1.min.x = (std::min)(aabb1.min.x, aabb1.max.x);
+		aabb1.min.y = (std::min)(aabb1.min.y, aabb1.max.y);
+		aabb1.min.z = (std::min)(aabb1.min.z, aabb1.max.z);
+		aabb1.max.x = (std::max)(aabb1.min.x, aabb1.max.x);
+		aabb1.max.y = (std::max)(aabb1.min.y, aabb1.max.y);
+		aabb1.max.z= (std::max)(aabb1.min.z, aabb1.max.z);
+
+		aabb2.min.x = (std::min)(aabb2.min.x, aabb2.max.x);
+		aabb2.min.y = (std::min)(aabb2.min.y, aabb2.max.y);
+		aabb2.min.z = (std::min)(aabb2.min.z, aabb2.max.z);
+		aabb2.max.x = (std::max)(aabb2.min.x, aabb2.max.x);
+		aabb2.max.y = (std::max)(aabb2.min.y, aabb2.max.y);
+		aabb2.max.z = (std::max)(aabb2.min.z, aabb2.max.z);
 		Matrix4x4 cameraMatrix = MakeAffineMatrix({ 1.0f, 1.0f, 1.0f }, cameraRotate, cameraTranslate);
 		Matrix4x4 viewMatrix = Inverse(cameraMatrix);
 
@@ -846,13 +876,14 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		Matrix4x4 viewProjectionMatrix = Mu(viewMatrix, projectionMatrix);
 		Matrix4x4 viewportMatrix =
 			MakeViewportMatrix(0, 0, float(kWindowWidth), float(kWindowHeight), 0.0f, 1.0f);
-		if (IsCollision(triangle, segment))
+
+		if (IsCollision(aabb1, aabb2))
 		{
-			segmentColor = RED;
+			color = RED;
 		}
 		else
 		{
-			segmentColor = WHITE;
+			color = WHITE;
 		}
 		///
 		/// ↑更新処理ここまで
@@ -862,8 +893,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		///
 		DrawGrid(viewProjectionMatrix, viewportMatrix);
 		
-		DrawSegment(segment, viewProjectionMatrix, viewportMatrix, segmentColor);
-		DrawTriangle(triangle, viewProjectionMatrix, viewportMatrix, color);
+		DrawAABB(aabb1, viewProjectionMatrix, viewportMatrix, color);
+		DrawAABB(aabb2, viewProjectionMatrix, viewportMatrix, WHITE);
 		///
 		/// ↑描画処理ここまで
 		///
