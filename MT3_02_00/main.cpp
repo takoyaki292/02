@@ -33,6 +33,10 @@ struct Segment {
 	Vector3 origin;
 	Vector3 diff;
 };
+
+struct  Triangle{
+	Vector3 vertices[3];
+};
 //ビューポート行列
 Matrix4x4 MakeViewportMatrix(float left, float top, float width, float height, float minDepth, float maxDepth)
 {
@@ -695,6 +699,11 @@ Vector3 Normalize(const Vector3& v)
 	return a;
 }
 
+Vector3 Subtract(const Vector3& v1, const Vector3& v2)
+{
+	Vector3 a{ v1.x - v2.x,v1.y - v2.y,v1.z - v2.z };
+	return a;
+}
 //クロス積の関数
 Vector3 Cross(const Vector3& v1, const Vector3& v2)
 {
@@ -732,14 +741,46 @@ void DrawSegment(const Segment& segment, const Matrix4x4 viewProjectionMatrix, c
 	Novice::DrawLine(int(strat.x), int(strat.y), int(end.x), int(end.y), color);
 }
 
-bool IsCollision(const Segment& segment, const Plane& plane) {
-	float a = Dot(plane.normal,segment.diff);
-	if (a != 0.0f)
+void DrawTriangle(const Triangle& triangle, const Matrix4x4 viewProjectionMatrix, const Matrix4x4& viewportMatrix, uint32_t color)
+{
+	Vector3 screenVertices[3] = {
+		Transform(Transform(triangle.vertices[0],viewProjectionMatrix),viewportMatrix),
+		Transform(Transform(triangle.vertices[1],viewProjectionMatrix),viewportMatrix),
+		Transform(Transform(triangle.vertices[2],viewProjectionMatrix),viewportMatrix) };
+
+	Novice::DrawTriangle(int(screenVertices[0].x), int(screenVertices[0].y),
+		int(screenVertices[1].x), int(screenVertices[1].y),
+		int(screenVertices[2].x), int(screenVertices[2].y), color, kFillModeWireFrame);
+}
+bool IsCollision(const Triangle& triangle, const Segment& line) {
+	Vector3 v01 = Subtract(triangle.vertices[1], triangle.vertices[0]);
+	Vector3 v12 = Subtract(triangle.vertices[2], triangle.vertices[1]);
+	Vector3 normal = Normalize(Cross(v01, v12));
+	Plane plane{ .normal = normal,.distance = Dot(triangle.vertices[0],normal) };
+	float dot = Dot(plane.normal, line.diff);
+	if (dot == 0.0f)
 	{
-		float t = (plane.distance - Dot(segment.origin, plane.normal));
-		return (t >= 0.0f && t <= 1.0f);
+		return false;
 	}
-	return false;
+	float t = (plane.distance - Dot(line.origin, plane.normal)) / dot;
+	Vector3 intersect = Add(line.origin, Multiply(t, line.diff));
+	Vector3 v1p = Subtract(intersect, triangle.vertices[1]);
+	if (Dot(Cross(v01, v1p), normal) < 0.0f)
+	{
+		return false;
+	}
+	Vector3 v2p = Subtract(intersect, triangle.vertices[2]);
+	if (Dot(Cross(v12, v2p), normal) < 0.0f)
+	{
+		return false;
+	}
+	Vector3 v0p = Subtract(intersect, triangle.vertices[0]);
+	Vector3 v20 = Subtract(triangle.vertices[0], triangle.vertices[2]);
+	if (Dot(Cross(v20, v0p), normal) < 0.0f)
+	{
+		return false;
+	}
+	return true;
 }
 
 // Windowsアプリでのエントリーポイント(main関数)
@@ -757,14 +798,20 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	Vector3 rotate{};
 	Vector3 translate{};
 
-	Sphere sphere{0.f,0.0f,0.0f };
 	Plane plane{ 1.0f,3.0f,0.5f };
 	Segment segment{ 0.f,0.f,0.f };
+	Triangle triangle= {};
 	Vector3 a = {};
-	sphere.radius = 0.4f;
+	
 	plane.distance=0.0f;
 	segment.diff = { 1.f,1.f,1.f };
 	uint32_t segmentColor = WHITE;
+	uint32_t color = WHITE;
+
+	triangle.vertices[0] = { -1.f,0.0f,0.0f };
+	triangle.vertices[1] = { 0.f,2.0f,0.0f };
+	triangle.vertices[2] = { 1.f,0.0f,0.0f };
+
 	// ウィンドウの×ボタンが押されるまでループ
 	while (Novice::ProcessMessage() == 0) {
 		// フレームの開始
@@ -782,12 +829,12 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	
 		
 		ImGui::Begin("Window");
-		ImGui::DragFloat3("CameraTranslate", &cameraTranslate.x, 0.01f);
-		ImGui::DragFloat3("CameraRotate", &cameraRotate.x, 0.01f);
-		ImGui::DragFloat3("&segment.diff.x", &segment.diff.x, 0.01f);
+		
+		ImGui::DragFloat3("triangle.vertices[0]", &triangle.vertices[0].x, 0.01f);
+		ImGui::DragFloat3("triangle.vertices[1]", &triangle.vertices[1].x, 0.01f);
+		ImGui::DragFloat3("triangle.vertices[2]", &triangle.vertices[2].x, 0.01f);
+		ImGui::DragFloat3("segment.diff.x", &segment.diff.x, 0.01f);
 		ImGui::DragFloat3("segment.origin.x", &segment.origin.x, 0.01f);
-		ImGui::DragFloat3("plane.normal", &plane.normal.x, 0.01f);
-		ImGui::DragFloat3("plane.distance", &plane.distance, 0.01f);
 		ImGui::End();
 
 		//plane.normal = Normalize(plane.normal);
@@ -799,11 +846,12 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		Matrix4x4 viewProjectionMatrix = Mu(viewMatrix, projectionMatrix);
 		Matrix4x4 viewportMatrix =
 			MakeViewportMatrix(0, 0, float(kWindowWidth), float(kWindowHeight), 0.0f, 1.0f);
-		
-		if (IsCollision(segment, plane)){
+		if (IsCollision(triangle, segment))
+		{
 			segmentColor = RED;
 		}
-		else {
+		else
+		{
 			segmentColor = WHITE;
 		}
 		///
@@ -813,9 +861,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		/// ↓描画処理ここから
 		///
 		DrawGrid(viewProjectionMatrix, viewportMatrix);
-		DrawPlane(plane, viewProjectionMatrix, viewportMatrix,WHITE);
+		
 		DrawSegment(segment, viewProjectionMatrix, viewportMatrix, segmentColor);
-
+		DrawTriangle(triangle, viewProjectionMatrix, viewportMatrix, color);
 		///
 		/// ↑描画処理ここまで
 		///
